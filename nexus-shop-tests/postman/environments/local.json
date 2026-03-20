@@ -1,0 +1,49 @@
+{
+  "id": "nexus-shop-env-local",
+  "name": "NEXUS SHOP — Local",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "cart_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "item_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "order_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "payment_intent_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "stripe_publishable_key",
+      "value": "pk_test_REPLACE_WITH_YOUR_STRIPE_TEST_KEY",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "nexus-shop-integration-tests",
+  "version": "1.0.0",
+  "description": "Pruebas de integracion automatizadas - Proyecto XYZ NEXUS SHOP",
+  "main": "run-tests.js",
+  "scripts": {
+    "test": "node run-tests.js",
+    "mock": "node mock-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "newman": "^6.1.0",
+    "newman-reporter-htmlextra": "^1.23.0"
+  }
+}

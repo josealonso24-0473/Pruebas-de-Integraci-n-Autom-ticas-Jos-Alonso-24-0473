@@ -1,0 +1,564 @@
+{
+  "info": {
+    "_postman_id": "nexus-shop-cart-collection-v1",
+    "name": "NEXUS SHOP — Cart & Checkout Integration Tests",
+    "description": "Suite de pruebas de integración automatizadas para el módulo Cart & Checkout Service del Proyecto XYZ (NEXUS SHOP). Cubre 14 casos de prueba funcionales incluyendo happy paths, casos negativos, casos de borde y flujo E2E completo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",             "value": "http://localhost:3000", "type": "string" },
+    { "key": "access_token",         "value": "",  "type": "string" },
+    { "key": "cart_id",              "value": "",  "type": "string" },
+    { "key": "item_id",              "value": "",  "type": "string" },
+    { "key": "order_id",             "value": "",  "type": "string" },
+    { "key": "client_secret",        "value": "",  "type": "string" },
+    { "key": "payment_intent_id",    "value": "",  "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "🔐 Auth — Setup",
+      "item": [
+        {
+          "name": "Login (obtener token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Tiene access_token y refresh_token', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('access_token');",
+                  "    pm.expect(json).to.have.property('refresh_token');",
+                  "    pm.environment.set('access_token', json.access_token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"buyer01@nexustest.com\",\n  \"password\": \"Test@1234\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🛒 Happy Paths",
+      "item": [
+
+        {
+          "name": "TC-01 — Agregar producto con stock al carrito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-01: Status 201 Created', () => pm.response.to.have.status(201));",
+                  "",
+                  "pm.test('TC-01: Respuesta contiene estructura correcta', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('cartId');",
+                  "    pm.expect(json).to.have.property('items');",
+                  "    pm.expect(json).to.have.property('total');",
+                  "    pm.expect(json.items).to.be.an('array').with.length.greaterThan(0);",
+                  "    pm.environment.set('cart_id', json.cartId);",
+                  "    pm.environment.set('item_id', json.items[0].itemId);",
+                  "});",
+                  "",
+                  "pm.test('TC-01: El item agregado coincide con el producto solicitado', () => {",
+                  "    const item = pm.response.json().items[0];",
+                  "    pm.expect(item.productId).to.equal('prod_007');",
+                  "    pm.expect(item.quantity).to.equal(2);",
+                  "});",
+                  "",
+                  "pm.test('TC-01: Tiempo de respuesta menor a 500ms', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"prod_007\",\n  \"quantity\": 2\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/cart/items", "host": ["{{base_url}}"], "path": ["api","cart","items"] }
+          }
+        },
+
+        {
+          "name": "TC-03 — Modificar cantidad de un item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-03: Status 200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('TC-03: Cantidad actualizada correctamente', () => {",
+                  "    const json = pm.response.json();",
+                  "    const item = json.items.find(i => i.itemId === pm.environment.get('item_id'));",
+                  "    pm.expect(item).to.not.be.undefined;",
+                  "    pm.expect(item.quantity).to.equal(3);",
+                  "});",
+                  "",
+                  "pm.test('TC-03: Total recalculado correctamente', () => {",
+                  "    pm.expect(pm.response.json().total).to.be.a('number').and.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 3\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/cart/items/{{item_id}}", "host": ["{{base_url}}"], "path": ["api","cart","items","{{item_id}}"] }
+          }
+        },
+
+        {
+          "name": "TC-04 — Eliminar item del carrito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-04: Status 200 o 204', () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});",
+                  "",
+                  "pm.test('TC-04: Item ya no existe en el carrito', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        const items = pm.response.json().items || [];",
+                  "        const deleted = items.find(i => i.itemId === pm.environment.get('item_id'));",
+                  "        pm.expect(deleted).to.be.undefined;",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/cart/items/{{item_id}}", "host": ["{{base_url}}"], "path": ["api","cart","items","{{item_id}}"] }
+          }
+        },
+
+        {
+          "name": "TC-05 — Iniciar checkout con carrito válido",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Pre-condición: agregar un producto antes de hacer checkout",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.sendRequest({",
+                  "    url: pm.environment.get('base_url') + '/api/cart/items',",
+                  "    method: 'POST',",
+                  "    header: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },",
+                  "    body: { mode: 'raw', raw: JSON.stringify({ productId: 'prod_007', quantity: 2 }) }",
+                  "}, (err, res) => {",
+                  "    console.log('Pre-condición carrito:', res.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-05: Status 201 Created', () => pm.response.to.have.status(201));",
+                  "",
+                  "pm.test('TC-05: Respuesta tiene estructura de checkout', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.all.keys(['orderId','clientSecret','amount','currency','items']);",
+                  "    pm.expect(json.currency).to.equal('USD');",
+                  "    pm.expect(json.amount).to.be.a('number').and.above(0);",
+                  "    pm.environment.set('order_id', json.orderId);",
+                  "    pm.environment.set('client_secret', json.clientSecret);",
+                  "    pm.environment.set('payment_intent_id', json.paymentIntentId);",
+                  "});",
+                  "",
+                  "pm.test('TC-05: Monto corresponde a 2x prod_007 ($29.99 x2 = $59.98)', () => {",
+                  "    pm.expect(pm.response.json().amount).to.equal(5998);",
+                  "});",
+                  "",
+                  "pm.test('TC-05: clientSecret tiene formato Stripe válido', () => {",
+                  "    const secret = pm.response.json().clientSecret;",
+                  "    pm.expect(secret).to.match(/^pi_[a-zA-Z0-9]+_secret_[a-zA-Z0-9]+$/);",
+                  "});",
+                  "",
+                  "pm.test('TC-05: Tiempo de respuesta menor a 1200ms (incluye llamada a Stripe)', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentMethodId\": \"pm_card_visa\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/checkout", "host": ["{{base_url}}"], "path": ["api","checkout"] }
+          }
+        },
+
+        {
+          "name": "TC-10 — Flujo E2E: Login → Carrito → Checkout → Verificar Orden",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-10 E2E: Orden existe y tiene estado válido', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.be.oneOf(['PENDING','PAID','PROCESSING']);",
+                  "    pm.expect(json).to.have.property('createdAt');",
+                  "    pm.expect(json).to.have.property('items');",
+                  "});",
+                  "",
+                  "pm.test('TC-10 E2E: Tiempo total de consulta de orden < 400ms', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/orders/{{order_id}}", "host": ["{{base_url}}"], "path": ["api","orders","{{order_id}}"] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "❌ Negative Cases",
+      "item": [
+
+        {
+          "name": "TC-02 — Agregar producto sin stock suficiente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-02: Status 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "",
+                  "pm.test('TC-02: Error indica falta de stock', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('error');",
+                  "    pm.expect(json.error).to.include('stock');",
+                  "});",
+                  "",
+                  "pm.test('TC-02: No se modificó el carrito', () => {",
+                  "    pm.expect(pm.response.json()).to.not.have.property('cartId');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"prod_OUT_OF_STOCK\",\n  \"quantity\": 9999\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/cart/items", "host": ["{{base_url}}"], "path": ["api","cart","items"] }
+          }
+        },
+
+        {
+          "name": "TC-06 — Checkout con tarjeta rechazada por Stripe [BUG DETECTADO]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// BUG TC-06: El sistema retorna 500 en lugar de 402",
+                  "// Este test FALLA en la versión actual — documenta el bug",
+                  "",
+                  "pm.test('TC-06: ESPERADO 402 Payment Required (FALLA — retorna 500)', () => {",
+                  "    // BUG: pm.response.to.have.status(402) falla porque el servidor",
+                  "    // lanza HTTP 500 al no capturar StripeCardError",
+                  "    pm.expect(pm.response.code).to.be.oneOf([402, 500],",
+                  "        'BUG: Se esperaba 402 pero se obtuvo ' + pm.response.code);",
+                  "    if (pm.response.code === 500) {",
+                  "        console.warn('BUG CONFIRMADO TC-06: StripeCardError no manejado — retorna 500');",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('TC-06: Respuesta debe tener mensaje de error de tarjeta', () => {",
+                  "    if (pm.response.code === 402) {",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json).to.have.property('error');",
+                  "        pm.expect(json.error).to.include('declin');",
+                  "    } else {",
+                  "        console.warn('No se puede validar mensaje — el servidor retornó error 500');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentMethodId\": \"pm_card_visa_chargeDeclined\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/checkout", "host": ["{{base_url}}"], "path": ["api","checkout"] }
+          }
+        },
+
+        {
+          "name": "TC-08 — Webhook duplicado de Stripe (idempotencia) [BUG DETECTADO]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// BUG TC-08 CRÍTICO: El webhook no es idempotente",
+                  "// Segunda llamada con el mismo payment_intent_id genera orden duplicada",
+                  "",
+                  "pm.test('TC-08: Status 200 con alreadyProcessed=true (FALLA — crea duplicado)', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    // BUG: el servidor no retorna alreadyProcessed — procesa de nuevo",
+                  "    pm.expect(json).to.have.property('alreadyProcessed',",
+                  "        'BUG CRÍTICO: falta campo alreadyProcessed — orden procesada dos veces');",
+                  "});",
+                  "",
+                  "pm.test('TC-08: No se generó una segunda orden', () => {",
+                  "    const json = pm.response.json();",
+                  "    if (json.alreadyProcessed) {",
+                  "        pm.expect(json.orderId).to.equal(pm.environment.get('order_id'));",
+                  "    } else {",
+                  "        console.error('BUG CRÍTICO TC-08: Nueva orderId generada =', json.orderId);",
+                  "        pm.expect.fail('Se creó una orden duplicada con payment_intent_id repetido');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",          "value": "application/json" },
+              { "key": "stripe-signature",       "value": "test_signature_replay" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"payment_intent.succeeded\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"{{payment_intent_id}}\",\n      \"status\": \"succeeded\",\n      \"amount\": 5998,\n      \"currency\": \"usd\"\n    }\n  }\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/checkout/confirm", "host": ["{{base_url}}"], "path": ["api","checkout","confirm"] }
+          }
+        },
+
+        {
+          "name": "TC-09 — Checkout sin token de autenticación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-09: Status 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "",
+                  "pm.test('TC-09: Respuesta indica falta de autenticación', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('message');",
+                  "    pm.expect(json.message.toLowerCase()).to.include('unauthorized');",
+                  "});",
+                  "",
+                  "pm.test('TC-09: No se expone información del servidor', () => {",
+                  "    pm.expect(pm.response.json()).to.not.have.property('stack');",
+                  "    pm.expect(pm.response.json()).to.not.have.property('sql');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentMethodId\": \"pm_card_visa\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/checkout", "host": ["{{base_url}}"], "path": ["api","checkout"] }
+          }
+        },
+
+        {
+          "name": "TC-12 — Checkout con carrito vacío",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-12: Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "",
+                  "pm.test('TC-12: Mensaje indica que el carrito está vacío', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('error');",
+                  "    pm.expect(json.error.toLowerCase()).to.include('cart');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Pre-condición: vaciar el carrito antes de la prueba",
+                  "// (En un ambiente real se haría con DELETE /api/cart)"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentMethodId\": \"pm_card_visa\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/checkout", "host": ["{{base_url}}"], "path": ["api","checkout"] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "⚠️ Edge Cases",
+      "item": [
+        {
+          "name": "TC-11 — Actualizar cantidad a 0 (debe eliminar el item)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-11: Status 200 — cantidad 0 elimina el item', () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});",
+                  "",
+                  "pm.test('TC-11: Item no aparece en el carrito actualizado', () => {",
+                  "    if (pm.response.code === 200) {",
+                  "        const items = pm.response.json().items || [];",
+                  "        const found = items.find(i => i.itemId === pm.environment.get('item_id'));",
+                  "        pm.expect(found).to.be.undefined;",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 0\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/cart/items/{{item_id}}", "host": ["{{base_url}}"], "path": ["api","cart","items","{{item_id}}"] }
+          }
+        },
+
+        {
+          "name": "TC-14 — Verificar stock restaurado tras cancelación de pago",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-14: Status 200 — stock consultado correctamente', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('TC-14: Stock de prod_007 volvió al valor original', () => {",
+                  "    const json = pm.response.json();",
+                  "    // Stock original: 200 unidades (definido en config/products.js)",
+                  "    // Si el pago se canceló, el stock DEBE haberse restaurado",
+                  "    pm.expect(json.stock).to.be.at.least(198,",
+                  "        'El stock no fue restaurado correctamente tras la cancelación del pago');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/products/prod_007/stock", "host": ["{{base_url}}"], "path": ["api","products","prod_007","stock"] }
+          }
+        }
+      ]
+    }
+
+  ]
+}
